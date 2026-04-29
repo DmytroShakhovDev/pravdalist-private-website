@@ -1,0 +1,18 @@
+/* Pravdalist — custom site styles */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+}
+
+#tiles-section {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.lang-switcher .btn {
+  font-size: 0.85rem;
+}

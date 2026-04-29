@@ -1,0 +1,17 @@
+{
+  "page": {
+    "title": "Über uns — Pravdalist",
+    "heading": "Über uns",
+    "intro": "Pravdalist ist ein unabhängiges Informationsprojekt."
+  },
+  "tiles": {
+    "t1": {
+      "title": "Mission",
+      "desc": "Unsere Ziele und Werte."
+    },
+    "t2": {
+      "title": "Team",
+      "desc": "Wer wir sind und was wir tun."
+    }
+  }
+}
