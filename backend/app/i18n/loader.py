@@ -54,6 +54,11 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 _ALLOWED_LANGS = frozenset(["ua", "en", "ru", "de"])
 _ALLOWED_PAGE_RE = __import__("re").compile(r"^[a-z0-9_-]+$")
 
+# Dict with literal values so that lookups produce an untainted string for
+# static analysis tools — the result is always one of the literal dict values,
+# never the raw user-supplied string.
+_LANG_MAP: Dict[str, str] = {"ua": "ua", "en": "en", "ru": "ru", "de": "de"}
+
 
 def load_page(page: str, lang: str) -> Dict[str, Any]:
     """
@@ -67,12 +72,12 @@ def load_page(page: str, lang: str) -> Dict[str, Any]:
         logger.warning("Invalid page name requested: %s", page)
         return {}
 
-    # Build paths only from validated, allow-listed components to prevent injection.
-    # lang is guaranteed to be in _ALLOWED_LANGS (alphanumeric); page matched ^[a-z0-9_-]+$.
-    safe_lang = lang  # already validated above
-    safe_page = page  # already matched against strict regex above
+    # Untaint lang: retrieve from a dict of literal values so that static
+    # analysis sees only the known-safe dict value flow into path construction,
+    # not the raw user-supplied string.
+    safe_lang = _LANG_MAP.get(lang, "ua")
     common_path = _COMMON_DIR / f"{safe_lang}.json"
-    page_path = _PAGES_DIR / safe_page / f"{safe_lang}.json"
+    page_path = _PAGES_DIR / page / f"{safe_lang}.json"
 
     mtime_c = _mtime(common_path)
     mtime_p = _mtime(page_path)
