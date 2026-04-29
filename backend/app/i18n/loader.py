@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -11,32 +12,28 @@ logger = logging.getLogger(__name__)
 _LOCALES_DIR = Path(__file__).parent / "locales"
 _COMMON_DIR = _LOCALES_DIR / "common"
 _PAGES_DIR = _LOCALES_DIR / "pages"
+_LOCALES_REAL = os.path.realpath(_LOCALES_DIR)
 
 _cache: Dict[tuple[str, str], tuple[Dict[str, Any], float, float]] = {}
 
 
-def _load_json(path: Path) -> Dict[str, Any]:
-    # Resolve the path and verify it stays within the locales directory to
-    # prevent any path traversal even if validation above is somehow bypassed.
+def _read_json_safe(real_path: str) -> Dict[str, Any]:
+    """Open *real_path* (already resolved and bounds-checked) and parse JSON."""
     try:
-        resolved = path.resolve()
-        resolved.relative_to(_LOCALES_DIR.resolve())
-    except ValueError:
-        logger.warning("Path traversal attempt blocked: %s", path)
+        with open(real_path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
         return {}
-    if not resolved.exists():
-        logger.warning("Locale file not found: %s", path)
+    except Exception as exc:
+        logger.warning("Failed to read locale file %s: %s", real_path, exc)
         return {}
-    with resolved.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
-def _mtime(path: Path) -> float:
+def _mtime_safe(real_path: str) -> float:
+    """Return mtime of *real_path* (already resolved and bounds-checked)."""
     try:
-        resolved = path.resolve()
-        resolved.relative_to(_LOCALES_DIR.resolve())
-        return resolved.stat().st_mtime
-    except (FileNotFoundError, ValueError):
+        return os.stat(real_path).st_mtime
+    except FileNotFoundError:
         return 0.0
 
 
@@ -60,6 +57,19 @@ _ALLOWED_PAGE_RE = __import__("re").compile(r"^[a-z0-9_-]+$")
 _LANG_MAP: Dict[str, str] = {"ua": "ua", "en": "en", "ru": "ru", "de": "de"}
 
 
+def _resolve_locale_path(raw_path: Path) -> str | None:
+    """
+    Resolve *raw_path* and return its real path as a string only if it stays
+    within the locales directory.  Returns None on any violation.
+    """
+    real = os.path.realpath(raw_path)
+    # Ensure the resolved path is strictly inside _LOCALES_REAL.
+    if not (real == _LOCALES_REAL or real.startswith(_LOCALES_REAL + os.sep)):
+        logger.warning("Path traversal attempt blocked: %s -> %s", raw_path, real)
+        return None
+    return real
+
+
 def load_page(page: str, lang: str) -> Dict[str, Any]:
     """
     Return merged localization dict for *page* + *lang*.
@@ -76,11 +86,17 @@ def load_page(page: str, lang: str) -> Dict[str, Any]:
     # analysis sees only the known-safe dict value flow into path construction,
     # not the raw user-supplied string.
     safe_lang = _LANG_MAP.get(lang, "ua")
-    common_path = _COMMON_DIR / f"{safe_lang}.json"
-    page_path = _PAGES_DIR / page / f"{safe_lang}.json"
+    common_raw = _COMMON_DIR / f"{safe_lang}.json"
+    page_raw = _PAGES_DIR / page / f"{safe_lang}.json"
 
-    mtime_c = _mtime(common_path)
-    mtime_p = _mtime(page_path)
+    # Resolve both paths and enforce they stay within the locales directory.
+    common_real = _resolve_locale_path(common_raw)
+    page_real = _resolve_locale_path(page_raw)
+    if common_real is None or page_real is None:
+        return {}
+
+    mtime_c = _mtime_safe(common_real)
+    mtime_p = _mtime_safe(page_real)
 
     key = (page, lang)
     if key in _cache:
@@ -88,8 +104,8 @@ def load_page(page: str, lang: str) -> Dict[str, Any]:
         if cached_mc == mtime_c and cached_mp == mtime_p:
             return cached_dict
 
-    common = _load_json(common_path)
-    page_data = _load_json(page_path)
+    common = _read_json_safe(common_real)
+    page_data = _read_json_safe(page_real)
     merged = _deep_merge(common, page_data)
     _cache[key] = (merged, mtime_c, mtime_p)
     return merged
