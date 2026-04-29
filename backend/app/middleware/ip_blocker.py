@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from typing import Optional
@@ -160,12 +161,36 @@ _ban_cache = _BanCache()
 _db_store = DbIpStore()
 
 
-def _get_client_ip(request: Request) -> str:
+def _get_client_ip(request: Request) -> tuple[str, bool]:
+    """
+    Returns (ip, is_real).
+
+    is_real=False signals the IP blocker to skip counting violations so that an
+    unresolvable request never increments a shared counter or causes a global ban.
+    """
+    direct = request.client.host if request.client else None
+
     if settings.trust_proxy:
-        forwarded = request.headers.get("x-forwarded-for", "")
+        # Optional: only honor the forwarded header when the immediate client
+        # is in the configured trusted proxy list (prevents header spoofing).
+        trusted = settings.trusted_proxy_ips_list
+        if trusted and direct not in trusted:
+            # Header may be spoofed — fall back to direct IP.
+            return (direct or f"unresolved:{uuid.uuid4()}", direct is not None)
+
+        forwarded = request.headers.get(settings.forwarded_header, "")
         if forwarded:
-            return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+            # Take the left-most entry (closest to the real client).
+            client_ip = forwarded.split(",")[0].strip()
+            if client_ip:
+                return (client_ip, True)
+
+    if direct:
+        return (direct, True)
+
+    # No client information at all — generate a per-request placeholder so we
+    # never share a violation bucket between unrelated unparseable requests.
+    return (f"unresolved:{uuid.uuid4()}", False)
 
 
 class IpBlockerMiddleware(BaseHTTPMiddleware):
@@ -181,7 +206,7 @@ class IpBlockerMiddleware(BaseHTTPMiddleware):
         self._store: IpStore = store or _db_store
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        ip = _get_client_ip(request)
+        ip, is_real = _get_client_ip(request)
 
         found, ban_until = _ban_cache.get(ip)
         if not found:
@@ -198,7 +223,10 @@ class IpBlockerMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
 
         violation_reason: str | None = getattr(request.state, "violation_reason", None)
-        if violation_reason or response.status_code in (403, 404):
+        # Only track violations when the IP is real, or when REQUIRE_REAL_CLIENT_IP
+        # is False (permissive mode — always track).
+        should_track = is_real or not settings.require_real_client_ip
+        if (violation_reason or response.status_code in (403, 404)) and should_track:
             reason = violation_reason or f"http_{response.status_code}"
             path = request.url.path
             await self._handle_violation(ip, path, reason)

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -14,6 +14,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 templates = Jinja2Templates(directory=str(__import__("pathlib").Path(__file__).parent.parent / "templates"))
+
+_LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # 1 year
+
+
+def _set_lang_cookie(response: Response, lang: str) -> None:
+    """Persist the detected language in a cookie so future requests skip ?lang=."""
+    response.set_cookie(
+        key="lang",
+        value=lang,
+        max_age=_LANG_COOKIE_MAX_AGE,
+        httponly=False,  # readable by JS for the switcher's UI state
+        samesite="lax",
+        path="/",
+    )
 
 
 def _detect_lang(request: Request, default: str = "ua") -> str:
@@ -61,16 +75,22 @@ def _ctx(request: Request, page: str) -> Dict[str, Any]:
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
     ctx = _ctx(request, "home")
-    return templates.TemplateResponse(request, "pages/home.html", ctx)
+    response = templates.TemplateResponse(request, "pages/home.html", ctx)
+    _set_lang_cookie(response, ctx["lang"])
+    return response
 
 
 @router.get("/about", response_class=HTMLResponse)
 async def about(request: Request) -> HTMLResponse:
     ctx = _ctx(request, "about")
-    return templates.TemplateResponse(request, "pages/about.html", ctx)
+    response = templates.TemplateResponse(request, "pages/about.html", ctx)
+    _set_lang_cookie(response, ctx["lang"])
+    return response
 
 
 @router.get("/contacts", response_class=HTMLResponse)
 async def contacts(request: Request) -> HTMLResponse:
     ctx = _ctx(request, "contacts")
-    return templates.TemplateResponse(request, "pages/contacts.html", ctx)
+    response = templates.TemplateResponse(request, "pages/contacts.html", ctx)
+    _set_lang_cookie(response, ctx["lang"])
+    return response

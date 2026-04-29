@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -11,23 +12,10 @@ logger = logging.getLogger(__name__)
 _LOCALES_DIR = Path(__file__).parent / "locales"
 _COMMON_DIR = _LOCALES_DIR / "common"
 _PAGES_DIR = _LOCALES_DIR / "pages"
+# Pre-compute the real (symlink-resolved) base path once at import time.
+_LOCALES_REAL: str = os.path.realpath(_LOCALES_DIR)
 
 _cache: Dict[tuple[str, str], tuple[Dict[str, Any], float, float]] = {}
-
-
-def _load_json(path: Path) -> Dict[str, Any]:
-    if not path.exists():
-        logger.warning("Locale file not found: %s", path)
-        return {}
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def _mtime(path: Path) -> float:
-    try:
-        return path.stat().st_mtime
-    except FileNotFoundError:
-        return 0.0
 
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -44,6 +32,45 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 _ALLOWED_LANGS = frozenset(["ua", "en", "ru", "de"])
 _ALLOWED_PAGE_RE = __import__("re").compile(r"^[a-z0-9_-]+$")
 
+# Dict with literal values so that lookups produce an untainted string for
+# static analysis tools — the result is always one of the literal dict values,
+# never the raw user-supplied string.
+_LANG_MAP: Dict[str, str] = {"ua": "ua", "en": "en", "ru": "ru", "de": "de"}
+
+
+def _read_json(raw_path: Path) -> Dict[str, Any]:
+    """
+    Resolve *raw_path*, verify it stays within the locales directory, then
+    parse and return the JSON file.  Returns an empty dict on any failure.
+    """
+    real = os.path.realpath(raw_path)
+    if not (real == _LOCALES_REAL or real.startswith(_LOCALES_REAL + os.sep)):
+        logger.warning("Path traversal attempt blocked: %s -> %s", raw_path, real)
+        return {}
+    try:
+        with open(real, encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        logger.warning("Locale file not found: %s", raw_path)
+        return {}
+    except Exception as exc:
+        logger.warning("Failed to read locale file %s: %s", raw_path, exc)
+        return {}
+
+
+def _mtime(raw_path: Path) -> float:
+    """
+    Resolve *raw_path*, verify it is inside the locales directory, and return
+    its mtime.  Returns 0.0 when the file doesn't exist or the path is unsafe.
+    """
+    real = os.path.realpath(raw_path)
+    if not (real == _LOCALES_REAL or real.startswith(_LOCALES_REAL + os.sep)):
+        return 0.0
+    try:
+        return os.stat(real).st_mtime
+    except FileNotFoundError:
+        return 0.0
+
 
 def load_page(page: str, lang: str) -> Dict[str, Any]:
     """
@@ -57,12 +84,12 @@ def load_page(page: str, lang: str) -> Dict[str, Any]:
         logger.warning("Invalid page name requested: %s", page)
         return {}
 
-    # Build paths only from validated, allow-listed components to prevent injection.
-    # lang is guaranteed to be in _ALLOWED_LANGS (alphanumeric); page matched ^[a-z0-9_-]+$.
-    safe_lang = lang  # already validated above
-    safe_page = page  # already matched against strict regex above
+    # Untaint lang: retrieve from a dict of literal values so that static
+    # analysis sees only the known-safe dict value flow into path construction,
+    # not the raw user-supplied string.
+    safe_lang = _LANG_MAP.get(lang, "ua")
     common_path = _COMMON_DIR / f"{safe_lang}.json"
-    page_path = _PAGES_DIR / safe_page / f"{safe_lang}.json"
+    page_path = _PAGES_DIR / page / f"{safe_lang}.json"
 
     mtime_c = _mtime(common_path)
     mtime_p = _mtime(page_path)
@@ -73,8 +100,8 @@ def load_page(page: str, lang: str) -> Dict[str, Any]:
         if cached_mc == mtime_c and cached_mp == mtime_p:
             return cached_dict
 
-    common = _load_json(common_path)
-    page_data = _load_json(page_path)
+    common = _read_json(common_path)
+    page_data = _read_json(page_path)
     merged = _deep_merge(common, page_data)
     _cache[key] = (merged, mtime_c, mtime_p)
     return merged
