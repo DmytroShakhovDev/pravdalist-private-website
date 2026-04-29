@@ -1,0 +1,17 @@
+{
+  "page": {
+    "title": "Startseite — Pravdalist",
+    "heading": "Willkommen",
+    "intro": "Dies ist die private Website des Pravdalist-Projekts."
+  },
+  "tiles": {
+    "t1": {
+      "title": "Nachrichten",
+      "desc": "Aktuelle Nachrichten und Analysen."
+    },
+    "t2": {
+      "title": "Materialien",
+      "desc": "Dokumente und Publikationen."
+    }
+  }
+}
