@@ -38,18 +38,13 @@ _ALLOWED_PAGE_RE = __import__("re").compile(r"^[a-z0-9_-]+$")
 _LANG_MAP: Dict[str, str] = {"ua": "ua", "en": "en", "ru": "ru", "de": "de"}
 
 
-def _is_safe_path(real: str) -> bool:
-    """Return True only when *real* (already realpath-resolved) is inside _LOCALES_REAL."""
-    return real == _LOCALES_REAL or real.startswith(_LOCALES_REAL + os.sep)
-
-
 def _read_json(raw_path: Path) -> Dict[str, Any]:
     """
     Resolve *raw_path*, verify it stays within the locales directory, then
     parse and return the JSON file.  Returns an empty dict on any failure.
     """
     real = os.path.realpath(raw_path)
-    if not _is_safe_path(real):
+    if not (real == _LOCALES_REAL or real.startswith(_LOCALES_REAL + os.sep)):
         logger.warning("Path traversal attempt blocked: %s -> %s", raw_path, real)
         return {}
     try:
@@ -69,7 +64,7 @@ def _mtime(raw_path: Path) -> float:
     its mtime.  Returns 0.0 when the file doesn't exist or the path is unsafe.
     """
     real = os.path.realpath(raw_path)
-    if not _is_safe_path(real):
+    if not (real == _LOCALES_REAL or real.startswith(_LOCALES_REAL + os.sep)):
         return 0.0
     try:
         return os.stat(real).st_mtime
