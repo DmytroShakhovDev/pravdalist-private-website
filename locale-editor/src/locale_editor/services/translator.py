@@ -34,4 +34,4 @@ class Translator:
             return result
         except Exception as exc:
             logger.error("Translation failed (%s->%s): %s", source, target, exc)
-            raise
+            return None

@@ -37,7 +37,10 @@ async def get_current_user_id(
     if payload is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    user_id: int | None = payload.get("sub")
-    if user_id is None:
+    sub: str | None = payload.get("sub")
+    if sub is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
-    return int(user_id)
+    try:
+        return int(sub)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")

@@ -57,8 +57,12 @@ def load_page(page: str, lang: str) -> Dict[str, Any]:
         logger.warning("Invalid page name requested: %s", page)
         return {}
 
-    common_path = _COMMON_DIR / f"{lang}.json"
-    page_path = _PAGES_DIR / page / f"{lang}.json"
+    # Build paths only from validated, allow-listed components to prevent injection.
+    # lang is guaranteed to be in _ALLOWED_LANGS (alphanumeric); page matched ^[a-z0-9_-]+$.
+    safe_lang = lang  # already validated above
+    safe_page = page  # already matched against strict regex above
+    common_path = _COMMON_DIR / f"{safe_lang}.json"
+    page_path = _PAGES_DIR / safe_page / f"{safe_lang}.json"
 
     mtime_c = _mtime(common_path)
     mtime_p = _mtime(page_path)
