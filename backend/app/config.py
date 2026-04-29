@@ -16,6 +16,9 @@ class Settings(BaseSettings):
 
     allowed_hosts: str = "private.pravdalist.ai,api.pravdalist.ai,localhost,127.0.0.1"
     trust_proxy: bool = False
+    forwarded_header: str = "x-forwarded-for"
+    trusted_proxy_ips: str = ""  # comma-separated list of trusted proxy IPs
+    require_real_client_ip: bool = False
 
     database_url: str = "postgresql+asyncpg://pravdalist:pravdalist@localhost:5432/pravdalist"
 
@@ -38,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def supported_langs_list(self) -> List[str]:
         return [lang.strip() for lang in self.supported_langs.split(",") if lang.strip()]
+
+    @property
+    def trusted_proxy_ips_list(self) -> List[str]:
+        return [ip.strip() for ip in self.trusted_proxy_ips.split(",") if ip.strip()]
 
 
 @lru_cache

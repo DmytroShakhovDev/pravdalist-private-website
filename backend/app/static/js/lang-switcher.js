@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     methods: {
       switchLang(lang) {
+        document.cookie = `lang=${encodeURIComponent(lang)}; path=/; max-age=31536000; samesite=lax`;
         const url = new URL(window.location.href);
         url.searchParams.set('lang', lang);
         window.location.href = url.toString();
