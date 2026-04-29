@@ -1,0 +1,28 @@
+<header class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="/?lang={{ lang }}">
+      {{ t('common.site.name') }}
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+            data-bs-target="#mainNav" aria-controls="mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/?lang={{ lang }}">{{ t('common.menu.home') }}</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/about?lang={{ lang }}">{{ t('common.menu.about') }}</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/contacts?lang={{ lang }}">{{ t('common.menu.contacts') }}</a>
+        </li>
+      </ul>
+      <div id="lang-switcher-app"
+           data-current-lang="{{ lang }}"
+           data-langs="{{ available_languages | tojson }}">
+      </div>
+    </div>
+  </div>
+</header>

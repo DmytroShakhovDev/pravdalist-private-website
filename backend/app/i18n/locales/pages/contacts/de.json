@@ -1,0 +1,17 @@
+{
+  "page": {
+    "title": "Kontakt — Pravdalist",
+    "heading": "Kontakt",
+    "intro": "Kontaktieren Sie uns auf dem für Sie bequemen Weg."
+  },
+  "tiles": {
+    "t1": {
+      "title": "E-Mail",
+      "desc": "Schreiben Sie uns."
+    },
+    "t2": {
+      "title": "Soziale Medien",
+      "desc": "Finden Sie uns in sozialen Netzwerken."
+    }
+  }
+}
