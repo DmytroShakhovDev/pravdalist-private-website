@@ -1,0 +1,21 @@
+{
+  "common": {
+    "site": {
+      "name": "Pravdalist"
+    },
+    "menu": {
+      "home": "Startseite",
+      "about": "Über uns",
+      "contacts": "Kontakt"
+    },
+    "footer": {
+      "copyright": "© 2026 Pravdalist"
+    },
+    "lang": {
+      "ua": "Ukrainisch",
+      "en": "Englisch",
+      "ru": "Russisch",
+      "de": "Deutsch"
+    }
+  }
+}
