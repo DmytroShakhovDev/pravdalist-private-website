@@ -16,17 +16,27 @@ _cache: Dict[tuple[str, str], tuple[Dict[str, Any], float, float]] = {}
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
-    if not path.exists():
+    # Resolve the path and verify it stays within the locales directory to
+    # prevent any path traversal even if validation above is somehow bypassed.
+    try:
+        resolved = path.resolve()
+        resolved.relative_to(_LOCALES_DIR.resolve())
+    except ValueError:
+        logger.warning("Path traversal attempt blocked: %s", path)
+        return {}
+    if not resolved.exists():
         logger.warning("Locale file not found: %s", path)
         return {}
-    with path.open(encoding="utf-8") as fh:
+    with resolved.open(encoding="utf-8") as fh:
         return json.load(fh)
 
 
 def _mtime(path: Path) -> float:
     try:
-        return path.stat().st_mtime
-    except FileNotFoundError:
+        resolved = path.resolve()
+        resolved.relative_to(_LOCALES_DIR.resolve())
+        return resolved.stat().st_mtime
+    except (FileNotFoundError, ValueError):
         return 0.0
 
 
